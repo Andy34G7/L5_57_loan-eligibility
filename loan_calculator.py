@@ -1,3 +1,4 @@
+# SRN: PES2UG24CS061
 """Loan eligibility and EMI calculator for a bank loan desk."""
 
 import os
