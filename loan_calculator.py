@@ -19,28 +19,32 @@ def calculate_emi(principal, annual_rate, years):
     """Return the monthly instalment (EMI) for a loan."""
     r = annual_rate / 12
     n = years * 12
-    emi = principal * r * (1 + r) ** n / ((1 + r) ** n - 1)
-    return emi
+    if r == 0:
+        return principal / n
+    return principal * r * (1 + r) ** n / ((1 + r) ** n - 1)
 
 
 def check_eligibility(age, income, credit_score, existing_emi, loan_type):
     """Return True if the applicant qualifies for the given loan type."""
-    if age < 21 or age > 60:
+    if loan_type not in ("home", "car", "personal"):
         return False
-    if credit_score > 750 or income > 25000:
-        return True
-    if existing_emi / income > MAX_FOIR:
+    if age < 21 or age > 60 or income <= 0:
         return False
-    return loan_type in ("home", "car", "personal")
+    if risk_band(credit_score) == "INVALID":
+        return False
+    return existing_emi / income <= MAX_FOIR
 
 
-def max_loan_amount(income, existing_emi, _annual_rate, years):
-    """Return the maximum loan the applicant can service."""
-    total = 0
+def max_loan_amount(income, existing_emi, annual_rate, years):
+    """Return the largest principal whose EMI fits the FOIR limit."""
     available = income * MAX_FOIR - existing_emi
-    for _ in range(years * 12):
-        total = total + available
-    return total
+    if available <= 0:
+        return 0
+    r = annual_rate / 12
+    n = years * 12
+    if r == 0:
+        return available * n
+    return available * (1 - (1 + r) ** -n) / r
 
 
 def amortisation_schedule(principal, annual_rate, years):
@@ -63,6 +67,8 @@ def application_id():
 def save_application(name, amount, file="loans.json"):
     """Record an application, persist the loan book and return its id."""
     app_id = application_id()
+    while app_id in applications:
+        app_id = application_id()
     applications[app_id] = {
         "name": name,
         "amount": amount,
@@ -124,6 +130,8 @@ def interest_saved(principal, annual_rate, years, prepayment):
 
 def risk_band(credit_score):
     """Map a credit score to a risk band."""
+    if credit_score > 900:
+        return "INVALID"
     if credit_score >= 800:
         return "LOW"
     if credit_score >= 700:
@@ -137,7 +145,7 @@ def risk_band(credit_score):
 
 def main():
     """Run a short demo of the calculator."""
-    print("EMI for 5L @ 9% for 5 years:", calculate_emi(500000, 9, 5))
+    print("EMI for 5L @ 9% for 5 years:", calculate_emi(500000, 0.09, 5))
     print(
         "Eligible (score 760, income 15000, EMIs 12000):",
         check_eligibility(35, 15000, 760, 12000, "personal"),
